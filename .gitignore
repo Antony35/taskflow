@@ -1,0 +1,17 @@
+# Dépendances et artefacts de construction
+node_modules/
+dist/
+
+# Fichiers d'environnement locaux (peuvent contenir des secrets)
+.env
+.env.*
+!.env.example
+
+# Journaux et fichiers système
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Éditeurs
+.vscode/
+.idea/

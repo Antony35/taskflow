@@ -1,0 +1,7 @@
+# Fins de ligne LF dans le dépôt et dans les copies de travail, quel que soit le système.
+# Évite les erreurs « bad interpreter » dues aux fins de ligne CRLF dans les conteneurs Linux.
+* text=auto eol=lf
+
+*.svg text eol=lf
+*.png binary
+*.ico binary
