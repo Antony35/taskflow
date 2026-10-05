@@ -1,0 +1,43 @@
+services:
+
+  db:
+    image: postgres:18.6-alpine3.24
+    restart: always
+    shm_size: 128mb
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_DB: ${DB_NAME}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - db-data:/var/lib/postgresql
+
+  api:
+    image: antony35/taskflow-api:1.0.0
+    build: ./api
+    restart: always
+    environment:
+      APP_ENV: production
+      DB_HOST: db
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  front:
+    image: antony35/taskflow-front:1.1.0
+    build: ./front
+    restart: always
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  db-data:
