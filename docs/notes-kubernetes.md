@@ -37,3 +37,23 @@ Tout, nous n'avons rien qui n'observe rien pour comparer et nous devons agir man
 Comparer avec la politique restart de Docker utilisée en séance 1.**
 La column RESTARTS est passé à 1 lle nom n'a pas changé l'IP non plus c'est toujours le meme pod grace a kubelet qui a restartPolicy : Always par default 
 C'est comme avec restart : always de docker ça relance un container arête n'est pas supprimé.  
+
+## Séance 5 — Ce que Deployment et Service apportent
+
+| Constat de la séance 4 | Avec Deployment et Service |
+|---|---|
+| Un Pod supprimé n'est pas recréé. | Le ReplicaSet du Deployment compare l'état voulu (`replicas`) à l'état réel et recrée le Pod manquant, sous un nouveau nom. |
+| L'IP d'un Pod change. | Elle change toujours, mais le Service donne un nom DNS et une IP stables (`db`, `api`) et met ses endpoints à jour tout seul. Plus aucune IP dans les manifestes. |
+| Un conteneur qui s'arrête est redémarré sur place. | Inchangé : c'est toujours kubelet (`restartPolicy: Always`). Le Deployment ajoute la mise à jour progressive et le retour arrière (`rollout undo`). |
+
+### Limites qui subsistent
+
+- **Mot de passe en clair** dans `db.yaml` et `api.yaml` (valeur de test). À externaliser dans un Secret (séance 6).
+- **Aucune sonde** : un Pod reçoit du trafic dès que son conteneur démarre. Pendant la mise à jour 1.0.0 → 2.0.0, une requête a échoué en `502 Bad Gateway`.
+- **Base sans persistance** : après suppression du Pod `db`, les tâches ont disparu et l'API répondait `relation "tasks" does not exist` jusqu'à son redémarrage (séance 7).
+
+### Piège d'environnement (étape 3)
+
+Les Pods de l'API plantaient avec `La variable DB_PORT doit être un entier positif (valeur reçue : "tcp://10.43.24.10:5432")`.
+Cause : kubelet injecte dans chaque nouveau Pod des variables pour tous les Services déjà présents dans le namespace (`<NOM>_SERVICE_HOST`, `<NOM>_PORT=tcp://...`, ancien format des liens Docker). Le Service `db` crée donc `DB_PORT`, le nom que lit l'API.
+Correction retenue : déclarer `DB_PORT: "5432"` dans `api.yaml` (une variable déclarée l'emporte sur une variable injectée). Autre possibilité : `enableServiceLinks: false`.

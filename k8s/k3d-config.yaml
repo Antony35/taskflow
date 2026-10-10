@@ -3,3 +3,7 @@ kind: Simple
 metadata:
   name: taskflow
 image: rancher/k3s:v1.35.5-k3s1
+ports:
+  - port: 9000:9000
+    nodeFilters:
+      - loadbalancer
