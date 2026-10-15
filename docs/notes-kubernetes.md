@@ -57,3 +57,17 @@ C'est comme avec restart : always de docker ça relance un container arête n'es
 Les Pods de l'API plantaient avec `La variable DB_PORT doit être un entier positif (valeur reçue : "tcp://10.43.24.10:5432")`.
 Cause : kubelet injecte dans chaque nouveau Pod des variables pour tous les Services déjà présents dans le namespace (`<NOM>_SERVICE_HOST`, `<NOM>_PORT=tcp://...`, ancien format des liens Docker). Le Service `db` crée donc `DB_PORT`, le nom que lit l'API.
 Correction retenue : déclarer `DB_PORT: "5432"` dans `api.yaml` (une variable déclarée l'emporte sur une variable injectée). Autre possibilité : `enableServiceLinks: false`.
+
+## Séance 6 — Configuration, sondes et ressources
+
+| Limite levée | Solution |
+|---|---|
+| Configuration et mot de passe en clair dans les Deployments. | ConfigMaps api-config et db-config (versionnées) et Secret db-credentials créé par commande, jamais dans git. Les Deployments ne contiennent plus que des références. |
+| Aucune sonde : un Pod recevait du trafic avant d'être prêt, 502 pendant la mise à jour. | startupProbe, livenessProbe (/healthz, ne dépend pas de la base) et readinessProbe (/readyz) sur l'api, sondes HTTP sur le front, pg_isready sur la db. Avec preStop et maxUnavailable: 0, la mise à jour 2.0.0 passe sans erreur. |
+| Aucune requête ni limite de ressources. | requests et limits sur les 3 conteneurs, db en Guaranteed, api et front en Burstable. requests.cpu de l'api servira au HPA (séance 9). |
+
+### Limites qui subsistent
+
+- **Base sans persistance** : un Pod db recréé repart vide, les tâches sont perdues et l'API doit être redémarrée pour recréer la table (séance 7).
+- **Exposition par un Service de niveau 4** : le front est publié par un Service LoadBalancer sur le port 9000, sans nom d'hôte, sans HTTPS et sans routage par chemin (Gateway API, séance 8).
+- **Secret seulement encodé en base64** : quiconque peut lire les Secrets du namespace lit le mot de passe, et il est visible dans l'environnement du conteneur.

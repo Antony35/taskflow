@@ -177,3 +177,52 @@ npm run dev
 ```
 
 L'application est alors accessible sur `http://localhost:5173`.
+
+---
+
+## Déploiement sur Kubernetes
+
+Les manifestes sont dans `k8s/app/` (un fichier par composant : Deployment, Service et ConfigMap).
+
+### Prérequis
+
+- Un cluster Kubernetes. Pour ce projet : k3d dans WSL2, créé à partir de `k8s/k3d-config.yaml`, qui publie le port 9000 du front sur le poste.
+- `kubectl` configuré sur ce cluster.
+- Les images `antony35/taskflow-api` et `antony35/taskflow-front` publiées sur Docker Hub.
+
+```sh
+k3d cluster create --config k8s/k3d-config.yaml
+```
+
+### Ordre des opérations
+
+Le mot de passe de la base est dans le Secret `db-credentials` (clé `password`). Il n'est **pas versionné** et doit exister **avant** les Deployments : sinon les Pods `api` et `db` restent en `CreateContainerConfigError` (événement `secret "db-credentials" not found`).
+
+```sh
+# 1. Namespace
+kubectl apply -f k8s/app/00-namespace.yaml
+
+# 2. Secret, créé par commande (le mot de passe ne doit apparaître dans aucun fichier du dépôt)
+kubectl create secret generic db-credentials -n taskflow \
+  --from-literal=password='<mot de passe>'
+
+# 3. Le reste des manifestes
+kubectl apply -f k8s/app/
+```
+
+Une modification d'une ConfigMap n'est pas vue par les Pods déjà démarrés. Il faut les recréer :
+
+```sh
+kubectl rollout restart deployment/api-deployment -n taskflow
+```
+
+### Vérifications
+
+```sh
+kubectl get pods -n taskflow                 # tous les Pods 1/1 Ready, RESTARTS stable
+kubectl describe pod -n taskflow <pod>       # lignes Liveness, Readiness, Startup, aucun événement Unhealthy
+git grep -n -i password -- k8s/app           # seulement des noms de variables, aucune valeur
+curl -s http://localhost:9000/api/info       # l'API répond à travers le front
+```
+
+L'application est accessible sur `http://localhost:9000`.

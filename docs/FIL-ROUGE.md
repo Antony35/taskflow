@@ -7,3 +7,7 @@
 
 ### [Séance 5 -TaskFlow de bout en bout sur Kubernetes](Seance-5.md)
 - [Ce que Deployment et Service apportent](notes-kubernetes.md#séance-5--ce-que-deployment-et-service-apportent)
+
+### [Séance 6 Configuration, sondes et ressources](Seance-6.md)
+- [Limites levées et limites restantes](notes-kubernetes.md#séance-6--configuration-sondes-et-ressources)
+- [Déploiement sur Kubernetes (README)](../README.md#déploiement-sur-kubernetes)
