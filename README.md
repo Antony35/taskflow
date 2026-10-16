@@ -182,7 +182,7 @@ L'application est alors accessible sur `http://localhost:5173`.
 
 ## Déploiement sur Kubernetes
 
-Les manifestes sont dans `k8s/app/` (un fichier par composant : Deployment, Service et ConfigMap).
+Les manifestes sont dans `k8s/app/` (un fichier par composant). L'API et le front sont des Deployments ; la base est un StatefulSet `db` avec un volume persistant (PVC `data-db-0`) et un Service headless `db-headless`. L'API joint la base par le Service `db`.
 
 ### Prérequis
 
@@ -226,3 +226,31 @@ curl -s http://localhost:9000/api/info       # l'API répond à travers le front
 ```
 
 L'application est accessible sur `http://localhost:9000`.
+
+### Persistance de la base
+
+PostgreSQL stocke ses données dans le PVC `data-db-0`, créé par le `volumeClaimTemplates` du StatefulSet et monté sur `/var/lib/postgresql` (PostgreSQL 18 : `PGDATA=/var/lib/postgresql/18/docker`). Classe de stockage : `local-path` (k3s), politique de rétention `Delete`.
+
+| Opération | Tâches conservées ? |
+|---|---|
+| `kubectl delete pod db-0` | Oui. Le Pod est recréé sur le même PVC, environ 10 s d'indisponibilité, l'API n'a pas besoin d'être redémarrée. |
+| `kubectl rollout restart statefulset/db` | Oui. Arrêt propre de PostgreSQL, environ 10 s d'indisponibilité. |
+| `kubectl delete statefulset db` puis `kubectl apply` | Oui. Le PVC n'est pas supprimé avec le StatefulSet. |
+| `kubectl delete pvc data-db-0` | **Non**, le PV et les fichiers sont supprimés (`Delete`). |
+| `kubectl delete namespace taskflow` | **Non**, le namespace emporte ses PVC. |
+| `k3d cluster delete taskflow` | **Non**, les volumes sont dans le nœud k3d. |
+
+> **Attention** : supprimer le namespace `taskflow` efface définitivement la base. Le Secret `db-credentials` est supprimé aussi et devra être recréé.
+
+Effacer volontairement la base (repartir de zéro) :
+
+```sh
+kubectl delete statefulset db -n taskflow
+kubectl delete pvc data-db-0 -n taskflow
+kubectl apply -f k8s/app/
+kubectl rollout restart deployment/api-deployment -n taskflow   # l'API recrée la table au démarrage
+```
+
+Le mot de passe n'est lu par PostgreSQL qu'à la première initialisation du volume. Pour le changer ensuite, modifier le Secret **et** exécuter `ALTER USER` dans la base, puis redémarrer l'API.
+
+Le test complet est décrit dans [docs/test-persistance.md](docs/test-persistance.md).

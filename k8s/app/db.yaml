@@ -1,14 +1,13 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  name: db-deployment
+  name: db
   namespace: taskflow
   labels:
     app.kubernetes.io/name: taskflow
 spec:
+  serviceName: db-headless
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/component: db
@@ -32,6 +31,9 @@ spec:
                 name: db-config
           ports:
             - containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql
           resources:
             requests:
               cpu: 250m
@@ -57,6 +59,16 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 2
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app.kubernetes.io/name: taskflow
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
 
 ---
 
@@ -75,6 +87,23 @@ spec:
     - protocol: TCP
       port: 5432
 
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-headless
+  namespace: taskflow
+  labels:
+    app.kubernetes.io/name: taskflow
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: taskflow
+    app.kubernetes.io/component: db
+  ports:
+    - protocol: TCP
+      port: 5432
 
 ---
 

@@ -71,3 +71,16 @@ Correction retenue : déclarer `DB_PORT: "5432"` dans `api.yaml` (une variable d
 - **Base sans persistance** : un Pod db recréé repart vide, les tâches sont perdues et l'API doit être redémarrée pour recréer la table (séance 7).
 - **Exposition par un Service de niveau 4** : le front est publié par un Service LoadBalancer sur le port 9000, sans nom d'hôte, sans HTTPS et sans routage par chemin (Gateway API, séance 8).
 - **Secret seulement encodé en base64** : quiconque peut lire les Secrets du namespace lit le mot de passe, et il est visible dans l'environnement du conteneur.
+
+## Séance 7 — Persistance de la base
+
+| Limite levée | Solution |
+|---|---|
+| Base sans persistance : un Pod db recréé repartait vide, tâches perdues, API à redémarrer. | StatefulSet db avec un PVC data-db-0 (volumeClaimTemplates, local-path, 1Gi, RWO) monté sur /var/lib/postgresql, et Service headless db-headless. Les tâches survivent à la suppression de db-0, au rollout restart et à la suppression du StatefulSet (voir [test-persistance.md](test-persistance.md)). |
+
+### Nouvelles limites
+
+- **Stockage local à la VM** : le volume local-path existe sur un seul nœud (sous k3d, dans le conteneur k3d-taskflow-server-0). Si la VM est perdue, ou le cluster supprimé, les données sont perdues.
+- **Aucune sauvegarde** : pas de pg_dump régulier copié hors du cluster.
+- **Une seule instance** : pas de réplication PostgreSQL, environ 10 s d'indisponibilité à chaque redémarrage de la base.
+- **reclaimPolicy Delete** : supprimer le PVC ou le namespace taskflow efface définitivement les tâches.
